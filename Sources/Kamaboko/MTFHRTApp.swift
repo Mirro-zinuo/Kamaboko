@@ -19,6 +19,7 @@ struct KamabokoApp: App {
             LabReport.self,
             LabEntry.self,
             ReportAttachment.self,
+            RLEEntry.self,
         ])
         let storeURL = makeStoreURL()
         let modelConfiguration = ModelConfiguration(

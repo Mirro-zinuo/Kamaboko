@@ -5,6 +5,7 @@ struct ContentView: View {
     private enum MainTab: Hashable {
         case hrt
         case labs
+        case rle
         case brief
         case settings
     }
@@ -54,6 +55,10 @@ struct ContentView: View {
             LabsListView()
                 .tag(MainTab.labs)
                 .tabItem { Label(AppLocalization.text("tab.labs", lang: appLanguage), systemImage: "waveform.path.ecg") }
+
+            RLELogView()
+                .tag(MainTab.rle)
+                .tabItem { Label(AppLocalization.text("tab.rle", lang: appLanguage), systemImage: "heart.text.square") }
 
             ReportView()
                 .tag(MainTab.brief)
@@ -189,13 +194,14 @@ struct ContentView: View {
         switch tab {
         case .hrt: index = 0
         case .labs: index = 1
-        case .brief: index = 2
-        case .settings: index = 3
+        case .rle: index = 2
+        case .brief: index = 3
+        case .settings: index = 4
         }
 
         if isPadLayout {
-            let groupWidth = min(380, max(240, w * 0.34))
-            let segment = groupWidth / 4
+            let groupWidth = min(460, max(280, w * 0.40))
+            let segment = groupWidth / 5
             let groupStartX = (w - groupWidth) / 2
             let x = groupStartX + segment * (index + 0.5)
             let y = proxy.safeAreaInsets.top + 44
@@ -206,7 +212,7 @@ struct ContentView: View {
             // Some overlay contexts report an incorrect bottom safe area (often 0).
             let bottomInset = proxy.safeAreaInsets.bottom > 0 ? proxy.safeAreaInsets.bottom : 34
             let y = h - bottomInset - 25
-            let segment = w / 4
+            let segment = w / 5
             let x = segment * (index + 0.5)
             let targetWidth: CGFloat = 68
             let targetHeight: CGFloat = 44

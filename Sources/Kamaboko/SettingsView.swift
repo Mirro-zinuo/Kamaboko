@@ -16,6 +16,9 @@ struct SettingsView: View {
     @AppStorage("dailyHRTReminderMinute") private var dailyHRTReminderMinute = 0
     @AppStorage("lastLabCheckDate") private var lastLabCheckTimestamp: Double = Date().timeIntervalSince1970
     @AppStorage("labCheckIntervalWeeks") private var labCheckIntervalWeeks: Int = 8
+    @AppStorage("xaiApiKey") private var xaiApiKey = ""
+    @AppStorage("xaiBaseURL") private var xaiBaseURL = "https://api.x.ai"
+    @AppStorage("xaiModel") private var xaiModel = "grok-4-fast"
 
     @State private var selectedAvatarItem: PhotosPickerItem?
     @State private var reminderStatusMessage = ""
@@ -108,6 +111,20 @@ struct SettingsView: View {
                             Text(option.label).tag(option.value)
                         }
                     }
+                }
+
+                Section(AppLocalization.text("settings.ai.title", lang: appLanguage)) {
+                    TextField(AppLocalization.text("settings.ai.url", lang: appLanguage), text: $xaiBaseURL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                    SecureField(AppLocalization.text("settings.ai.key", lang: appLanguage), text: $xaiApiKey)
+                    TextField(AppLocalization.text("settings.ai.model", lang: appLanguage), text: $xaiModel)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Text(AppLocalization.text("settings.ai.desc", lang: appLanguage))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section(AppLocalization.text("settings.onboarding", lang: appLanguage)) {
