@@ -1,0 +1,5 @@
+My country of origin is mainland China, and I am a transgender woman. I am currently receiving professional transgender healthcare in Canada. However, in some regions, including mainland China, due to various unique factors, transgender healthcare resources are extremely scarce, with an increasing number of doctors choosing to close their practice, and systematic hormone replacement therapy (HRT) support is even more limited.
+
+The initial purpose of this application is to alleviate this predicament to some extent, particularly for transgender women living in the margins, through supportive methods, and it is also applicable to all transgender women.
+
+The name of this project, "Kamaboko," comes from a symbolic code popular in mainland China. Because it is difficult to directly express transgender identity in the context of mainland China, transgender women often use the image of Fish Cake as an identification code. This is because the image is similar to the packaging of the estrogen product Progynova sold in mainland China. The Japanese Romanized name for Fish Cake is Kamabokko.
