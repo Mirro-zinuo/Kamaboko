@@ -1,13 +1,13 @@
 //
-//  MTFHRTUITestsLaunchTests.swift
-//  MTFHRTUITests
+//  KamabokoUITestsLaunchTests.swift
+//  KamabokoUITests
 //
 //  Created by Mirro on 2/26/26.
 //
 
 import XCTest
 
-final class MTFHRTUITestsLaunchTests: XCTestCase {
+final class KamabokoUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
