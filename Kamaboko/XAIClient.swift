@@ -148,6 +148,42 @@ struct XAIChatClient {
         }
     }
 
+    struct LabCheckAISuggestion: Decodable {
+        let intervalWeeks: Int
+        let reason: String
+
+        enum CodingKeys: String, CodingKey {
+            case intervalWeeks = "interval_weeks"
+            case reason
+        }
+    }
+
+    static func generateLabCheckSuggestion(
+        hrtStartDate: Date,
+        latestReport: LabReport?,
+        languageCode: String,
+        apiKey: String,
+        baseURL: String,
+        model: String
+    ) async throws -> LabCheckAISuggestion {
+        let systemPrompt = labCheckSystemPrompt(for: languageCode)
+        let userPrompt = labCheckUserPrompt(hrtStartDate: hrtStartDate, latestReport: latestReport, languageCode: languageCode)
+
+        let requestBody = ChatRequest(
+            model: model,
+            messages: [
+                .init(role: "system", content: [.text(systemPrompt)]),
+                .init(role: "user", content: [.text(userPrompt)])
+            ],
+            temperature: 0.2,
+            maxTokens: 200
+        )
+
+        let response = try await sendChat(requestBody, apiKey: apiKey, baseURL: baseURL)
+        let data = Data(response.utf8)
+        return try JSONDecoder().decode(LabCheckAISuggestion.self, from: data)
+    }
+
     static func generateRLESupport(
         entry: RLEEntry,
         languageCode: String,
@@ -254,6 +290,39 @@ struct XAIChatClient {
         default:
             return "用户是一名跨性别女性，希望你通过照片分析其HRT与RLE的变化，在客观分析变化的基础上给予正向鼓励。保持精简：1 段短文。"
         }
+    }
+
+    private static func labCheckSystemPrompt(for languageCode: String) -> String {
+        switch languageCode {
+        case "en":
+            return "You are a clinical assistant. Based on the provided HRT start date and latest lab report summary, suggest a lab recheck interval in weeks. Output ONLY strict JSON: {\"interval_weeks\": number, \"reason\": \"...\"}. No extra text."
+        case "zh-Hant":
+            return "你是一名臨床助理。根據提供的 HRT 開始日期與最近一次化驗摘要，建議復查間隔（週）。僅輸出嚴格 JSON：{\"interval_weeks\": 數字, \"reason\": \"...\"}，不要輸出其他文字。"
+        default:
+            return "你是一名临床助理。根据提供的 HRT 开始日期与最近一次化验摘要，建议复查间隔（周）。仅输出严格 JSON：{\"interval_weeks\": 数字, \"reason\": \"...\"}，不要输出其他文字。"
+        }
+    }
+
+    private static func labCheckUserPrompt(hrtStartDate: Date, latestReport: LabReport?, languageCode: String) -> String {
+        let startText = hrtStartDate.formatted(date: .abbreviated, time: .omitted)
+        let reportText: String
+        if let latestReport {
+            let dateText = latestReport.date.formatted(date: .abbreviated, time: .omitted)
+            reportText = """
+Latest report date: \(dateText)
+E2: \(latestReport.estradiolValue) \(latestReport.estradiolUnit.rawValue)
+T: \(latestReport.testosteroneValue) \(latestReport.testosteroneUnit.rawValue)
+Interpretation: \(latestReport.interpretation.rawValue)
+Suggestion: \(latestReport.suggestion.rawValue)
+"""
+        } else {
+            reportText = "Latest report: none"
+        }
+
+        return """
+HRT start date: \(startText)
+\(reportText)
+"""
     }
 
     private static func userPromptText(for entry: RLEEntry, languageCode: String) -> String {

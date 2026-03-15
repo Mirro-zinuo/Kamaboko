@@ -1,9 +1,11 @@
 import SwiftUI
+import SwiftData
 import PhotosUI
 import UIKit
 import UserNotifications
 
 struct SettingsView: View {
+    @Query(sort: \LabReport.date, order: .reverse) private var reports: [LabReport]
     @AppStorage("profileName") private var profileName = ""
     @AppStorage("birthDate") private var birthDateTimestamp: Double = Date().timeIntervalSince1970
     @AppStorage("hrtStartDate") private var hrtStartDateTimestamp: Double = Date().timeIntervalSince1970
@@ -23,6 +25,10 @@ struct SettingsView: View {
     @State private var selectedAvatarItem: PhotosPickerItem?
     @State private var reminderStatusMessage = ""
     @State private var labReminderStatusMessage = ""
+    @State private var aiLabSuggestion: XAIChatClient.LabCheckAISuggestion?
+    @State private var aiLabSuggestionMessage = ""
+    @State private var aiLabSuggestionError = ""
+    @State private var isGeneratingAiLabSuggestion = false
 
     private let languageOptions: [(label: String, value: String)] = [
         ("简体中文", "zh-Hans"),
@@ -85,6 +91,27 @@ struct SettingsView: View {
     private var nextLabCheckDate: Date {
         Calendar.current.date(byAdding: .day, value: labCheckIntervalWeeks * 7, to: Date(timeIntervalSince1970: lastLabCheckTimestamp))
             ?? Date(timeIntervalSince1970: lastLabCheckTimestamp)
+    }
+
+    private var smartLabSuggestion: LabCheckSuggestion {
+        LabCheckAdvisor.suggest(
+            hrtStartDate: Date(timeIntervalSince1970: hrtStartDateTimestamp),
+            latestReport: reports.first,
+            fallbackLastCheckDate: Date(timeIntervalSince1970: lastLabCheckTimestamp)
+        )
+    }
+
+    private func smartLabReasonText(_ reason: LabCheckSuggestion.Reason) -> String {
+        switch reason {
+        case .noReport:
+            return AppLocalization.text("settings.smart_lab.reason.no_report", lang: appLanguage)
+        case .recentAbnormal:
+            return AppLocalization.text("settings.smart_lab.reason.abnormal", lang: appLanguage)
+        case .earlyHRT:
+            return AppLocalization.text("settings.smart_lab.reason.early", lang: appLanguage)
+        case .stable:
+            return AppLocalization.text("settings.smart_lab.reason.stable", lang: appLanguage)
+        }
     }
 
     var body: some View {
@@ -158,6 +185,66 @@ struct SettingsView: View {
                         value: $labCheckIntervalWeeks,
                         in: 2...16
                     )
+
+                    let suggestion = smartLabSuggestion
+                    HStack {
+                        Text(AppLocalization.text("settings.smart_lab", lang: appLanguage))
+                        Spacer()
+                        Text(formattedDate(suggestion.nextDate))
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(AppLocalization.format("settings.smart_lab.interval", suggestion.intervalWeeks, lang: appLanguage))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text(smartLabReasonText(suggestion.reason))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button(AppLocalization.text("settings.smart_lab.apply", lang: appLanguage)) {
+                        lastLabCheckTimestamp = suggestion.anchorDate.timeIntervalSince1970
+                        labCheckIntervalWeeks = suggestion.intervalWeeks
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(AppLocalization.text("settings.ai_lab.title", lang: appLanguage))
+                            .font(.subheadline.weight(.semibold))
+                        Text(AppLocalization.text("settings.ai_lab.disclaimer", lang: appLanguage))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                        if let aiLabSuggestion {
+                            Text(AppLocalization.format("settings.ai_lab.interval", aiLabSuggestion.intervalWeeks, lang: appLanguage))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            Text(aiLabSuggestion.reason)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            Button(AppLocalization.text("settings.ai_lab.apply", lang: appLanguage)) {
+                                labCheckIntervalWeeks = max(2, aiLabSuggestion.intervalWeeks)
+                            }
+                        }
+
+                        if !aiLabSuggestionMessage.isEmpty {
+                            Text(aiLabSuggestionMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if !aiLabSuggestionError.isEmpty {
+                            Text(aiLabSuggestionError)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Button(isGeneratingAiLabSuggestion
+                            ? AppLocalization.text("settings.ai_lab.generating", lang: appLanguage)
+                            : AppLocalization.text("settings.ai_lab.generate", lang: appLanguage)
+                        ) {
+                            Task { await generateAiLabSuggestion() }
+                        }
+                        .disabled(isGeneratingAiLabSuggestion)
+                    }
 
                     HStack {
                         Text(AppLocalization.text("settings.next_lab", lang: appLanguage))
@@ -298,6 +385,36 @@ struct SettingsView: View {
             Date.FormatStyle(date: .abbreviated, time: .omitted)
                 .locale(Locale(identifier: appLanguage))
         )
+    }
+
+    @MainActor
+    private func generateAiLabSuggestion() async {
+        aiLabSuggestionError = ""
+        aiLabSuggestionMessage = ""
+        aiLabSuggestion = nil
+
+        guard !xaiApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            aiLabSuggestionError = AppLocalization.text("settings.ai_lab.missing_key", lang: appLanguage)
+            return
+        }
+
+        isGeneratingAiLabSuggestion = true
+        defer { isGeneratingAiLabSuggestion = false }
+
+        do {
+            let suggestion = try await XAIChatClient.generateLabCheckSuggestion(
+                hrtStartDate: Date(timeIntervalSince1970: hrtStartDateTimestamp),
+                latestReport: reports.first,
+                languageCode: appLanguage,
+                apiKey: xaiApiKey,
+                baseURL: xaiBaseURL,
+                model: xaiModel
+            )
+            aiLabSuggestion = suggestion
+            aiLabSuggestionMessage = AppLocalization.text("settings.ai_lab.done", lang: appLanguage)
+        } catch {
+            aiLabSuggestionError = AppLocalization.format("settings.ai_lab.failed", error.localizedDescription, lang: appLanguage)
+        }
     }
 
     @MainActor
